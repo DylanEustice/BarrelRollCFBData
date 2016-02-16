@@ -1,6 +1,7 @@
 import json
 import os
 import errno
+import re
 
 
 def ensure_path(path):
@@ -54,3 +55,39 @@ def find_game_folder(gameid):
 				return os.path.join(root, f)
 	print 'Could not find game', gameid
 	raw_input()
+
+
+def add_boxscore_data(sdata, stype, team_box):
+	"""
+	Formats data type for boxscore data.
+	"""
+	stype = str(stype)
+	# Convert certain stat types
+	if ((stype == "Passing" or stype == "Rushing" or stype == "Penalties") and 
+		"1st Down " + stype not in team_box):
+		stype = "1st Down " + stype
+	elif stype == "Average":
+		stype = "Yards per Rush"
+	elif stype == "Attempts":
+		stype = "Rushing Attempts"
+	# Convert data types
+	if stype == "3rd Down Conv" or stype == "4th Down Conv":
+		try:
+			sdata = 0.01 * float(re.sub('%', '', sdata))
+		except ValueError:
+			sdata = 0.0
+	elif stype == "Comp-Att":
+		sdata = [float(x) for x in re.split('-', sdata)]
+	elif stype == "Possession":
+		sdata = poss_to_secs(sdata)
+	else:
+		sdata = float(sdata)
+	team_box[stype] = sdata
+
+
+def poss_to_secs(poss):
+	"""
+	Converts string possession time in 'mm:ss' format to float seconds.
+	"""
+	new_poss = re.split(':', poss)
+	return 60 * float(new_poss[0]) + float(new_poss[1])

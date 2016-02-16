@@ -87,13 +87,13 @@ class GameInfoSpider(Spider):
 			sf.dump_json(game, fname, fdir=fdir, indent=4)
 
 
-class BoxscoreSpider(Spider):
+class TeamStatsSpider(Spider):
 	"""
 	Scrapes the boxscores for each game. Uses links
 	collected by GameInfoSpider and must be run after
 	game info has been collected.
 	"""
-	name = 'boxscore'
+	name = 'teamstats'
 	allowed_domains = ['http://www.foxsports.com']
 
 	#Build URLs
@@ -113,7 +113,31 @@ class BoxscoreSpider(Spider):
 		warnings.warn("Game info not collected. Run \"scrapy crawl gameinfo\" then try again.", UserWarning)
 
 	def parse(self, response):
-		# Find folder location
+
+		# Find folder location and set up data struct
 		gameid = re.search(r'\?id=(?P<id>\d+)', response.url).group('id')
 		folder = sf.find_game_folder(gameid)
-		sf.dump_json(box, 'boxscore.txt', fdir=folder)
+		teamstats = dict()
+		teamstats['awayTeam'] = dict()
+		teamstats['homeTeam'] = dict()
+		stats_area = response.xpath('//div[contains(@class,"wisfb_bsTeamStats")]')
+
+		# Get team names
+		tm_divs = stats_area.xpath('.//div[contains(@class,"wisfb_bstsTeamDisplay")]')
+		teamstats['awayTeam']['nameFull'] = tm_divs[0].xpath('.//span[contains(@class,"wisfb_bsFull")]/text()').extract()[0]
+		teamstats['awayTeam']['nameShort'] = tm_divs[0].xpath('.//span[contains(@class,"wisfb_bsShort")]/text()').extract()[0]
+		teamstats['homeTeam']['nameFull'] = tm_divs[1].xpath('.//span[contains(@class,"wisfb_bsFull")]/text()').extract()[0]
+		teamstats['homeTeam']['nameShort'] = tm_divs[1].xpath('.//span[contains(@class,"wisfb_bsShort")]/text()').extract()[0]
+
+		# Get boxscore stats
+		boxtable = stats_area.xpath('.//tbody')
+		stat_data = boxtable.xpath('.//td[contains(@class,"wisfb_bstsStat")]/text()').extract()
+		stat_type = boxtable.xpath('.//td[contains(@class,"wisfb_bstsTitle")]/text()').extract()
+		# away stats
+		for sdata, stype in zip(stat_data[::2], stat_type[::2]):
+			sf.add_boxscore_data(sdata, stype, teamstats['awayTeam'])
+		# home stats
+		for sdata, stype in zip(stat_data[1::2], stat_type[1::2]):
+			sf.add_boxscore_data(sdata, stype, teamstats['homeTeam'])
+
+		sf.dump_json(teamstats, 'boxscore.txt', fdir=folder, indent=4)

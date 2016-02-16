@@ -1,6 +1,9 @@
 # Text files
 *.txt
 
+# Python compile files
+*.pyc
+
 # Windows image file caches
 Thumbs.db
 ehthumbs.db
