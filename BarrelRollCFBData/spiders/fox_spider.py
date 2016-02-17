@@ -5,6 +5,7 @@ import json
 import re
 import os
 import warnings
+import sys
 
 # =====================================================================
 # Globals
@@ -92,6 +93,11 @@ class TeamStatsSpider(Spider):
 	Scrapes the boxscores for each game. Uses links
 	collected by GameInfoSpider and must be run after
 	game info has been collected.
+
+	NOTE: This spider grabs the boxscore stats from the
+	"Team Stats page and creates the boxscore JSON file.
+	BoxscoreSpider gets the rest of the boxscore stats to
+	complete the file.
 	"""
 	name = 'teamstats'
 	allowed_domains = ['http://www.foxsports.com']
@@ -115,29 +121,74 @@ class TeamStatsSpider(Spider):
 	def parse(self, response):
 
 		# Find folder location and set up data struct
+		game_index = sf.load_json('game_index.txt', fdir='data')
 		gameid = re.search(r'\?id=(?P<id>\d+)', response.url).group('id')
-		folder = sf.find_game_folder(gameid)
-		teamstats = dict()
-		teamstats['awayTeam'] = dict()
-		teamstats['homeTeam'] = dict()
-		stats_area = response.xpath('//div[contains(@class,"wisfb_bsTeamStats")]')
+		folder = game_index[gameid]
 
-		# Get team names
-		tm_divs = stats_area.xpath('.//div[contains(@class,"wisfb_bstsTeamDisplay")]')
-		teamstats['awayTeam']['nameFull'] = tm_divs[0].xpath('.//span[contains(@class,"wisfb_bsFull")]/text()').extract()[0]
-		teamstats['awayTeam']['nameShort'] = tm_divs[0].xpath('.//span[contains(@class,"wisfb_bsShort")]/text()').extract()[0]
-		teamstats['homeTeam']['nameFull'] = tm_divs[1].xpath('.//span[contains(@class,"wisfb_bsFull")]/text()').extract()[0]
-		teamstats['homeTeam']['nameShort'] = tm_divs[1].xpath('.//span[contains(@class,"wisfb_bsShort")]/text()').extract()[0]
+		try:
+			teamstats = dict()
+			teamstats['awayTeam'] = dict()
+			teamstats['homeTeam'] = dict()
+			stats_area = response.xpath('//div[contains(@class,"wisfb_bsTeamStats")]')
 
-		# Get boxscore stats
-		boxtable = stats_area.xpath('.//tbody')
-		stat_data = boxtable.xpath('.//td[contains(@class,"wisfb_bstsStat")]/text()').extract()
-		stat_type = boxtable.xpath('.//td[contains(@class,"wisfb_bstsTitle")]/text()').extract()
-		# away stats
-		for sdata, stype in zip(stat_data[::2], stat_type[::2]):
-			sf.add_boxscore_data(sdata, stype, teamstats['awayTeam'])
-		# home stats
-		for sdata, stype in zip(stat_data[1::2], stat_type[1::2]):
-			sf.add_boxscore_data(sdata, stype, teamstats['homeTeam'])
+			# Get team names
+			tm_divs = stats_area.xpath('.//div[contains(@class,"wisfb_bstsTeamDisplay")]')
+			teamstats['awayTeam']['nameFull'] = tm_divs[0].xpath('.//span[contains(@class,"wisfb_bsFull")]/text()').extract()[0]
+			teamstats['awayTeam']['nameShort'] = tm_divs[0].xpath('.//span[contains(@class,"wisfb_bsShort")]/text()').extract()[0]
+			teamstats['homeTeam']['nameFull'] = tm_divs[1].xpath('.//span[contains(@class,"wisfb_bsFull")]/text()').extract()[0]
+			teamstats['homeTeam']['nameShort'] = tm_divs[1].xpath('.//span[contains(@class,"wisfb_bsShort")]/text()').extract()[0]
 
-		sf.dump_json(teamstats, 'boxscore.txt', fdir=folder, indent=4)
+			# Get boxscore stats
+			boxtable = stats_area.xpath('.//tbody')
+			stat_data = boxtable.xpath('.//td[contains(@class,"wisfb_bstsStat")]/text()').extract()
+			stat_type = boxtable.xpath('.//td[contains(@class,"wisfb_bstsTitle")]/text()').extract()
+			# away stats
+			for sdata, stype in zip(stat_data[::2], stat_type[::2]):
+				sf.add_boxscore_data(sdata, stype, teamstats['awayTeam'])
+			# home stats
+			for sdata, stype in zip(stat_data[1::2], stat_type[1::2]):
+				sf.add_boxscore_data(sdata, stype, teamstats['homeTeam'])
+
+			sf.dump_json(teamstats, 'boxscore.txt', fdir=folder, indent=4)
+
+		# Log where problem occurred to debug scraper later
+		except Exception,error:
+			with open(os.path.join(folder, 'bad_boxscore.txt'), 'w') as f:
+				f.write("ERROR: " + str(error) + "\n" + 
+						" LINE: " + str(sys.exc_info()[-1].tb_lineno) + "\n" + 
+						" GAME: " + str(gameid) + "\n" + 
+						"  URL: " + response.url)
+
+
+class BoxscoreSpider(Spider):
+	"""
+	Scrapes the boxscores for each game. Uses links
+	collected by GameInfoSpider and must be run after
+	game info has been collected.
+	"""
+	name = 'boxscore'
+	allowed_domains = ['http://www.foxsports.com']
+
+	#Build URLs
+	base_url = 'http://www.foxsports.com'
+	start_urls = []
+	try:
+		for season in seasons:
+			# load season data
+			weeks = sf.weeks_in_season(season)
+			# grab links from game info files
+			for root, dirs, files in os.walk(os.path.join('data', str(season), 'gameinfo')):
+				for f in files:
+					if re.match(r'gameinfo_\d+\.txt', f):
+						game = sf.load_json(f, fdir=root)
+						start_urls.append(base_url + game['Links']['boxscore'])
+	except IOError:
+		warnings.warn("Game info not collected. Run \"scrapy crawl gameinfo\" then try again.", UserWarning)
+
+	
+	def parse(self, response):
+
+		# Find folder location and set up data struct
+		game_index = sf.load_json('game_index.txt', fdir='data')
+		gameid = re.search(r'\?id=(?P<id>\d+)', response.url).group('id')
+		folder = game_index[gameid]

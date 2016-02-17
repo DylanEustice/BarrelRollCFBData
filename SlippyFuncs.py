@@ -44,6 +44,23 @@ def weeks_in_season(season):
 				int(w['SeasonType']) == 1]
 
 
+def index_game_folders():
+	"""
+	Creates a dictionary with the gameid as the
+	key and the path to the containing folder as
+	the value.
+	"""
+	game_index = dict()
+	for root, dirs, files in os.walk('.\\data'):
+		for f in dirs:
+			try:
+				gameid = int(re.search(r'game_(?P<id>\d+)', f).group('id'))
+				game_index[gameid] = os.path.join(root, f)
+			except AttributeError:
+				pass
+	dump_json(game_index, 'game_index.txt', fdir='data', indent=4)
+
+
 def find_game_folder(gameid):
 	"""
 	Finds the game folder in the data directory which
