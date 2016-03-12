@@ -9,7 +9,7 @@ import sys
 
 # =====================================================================
 # Globals
-seasons = range(2000, 2016)
+seasons = range(2015, 2016)
 # ---------------------------------------------------------------------
 
 
@@ -188,7 +188,46 @@ class BoxscoreSpider(Spider):
 	
 	def parse(self, response):
 
-		# Find folder location and set up data struct
-		game_index = sf.load_json('game_index.txt', fdir='data')
-		gameid = re.search(r'\?id=(?P<id>\d+)', response.url).group('id')
-		folder = game_index[gameid]
+		try:
+			# Find folder location and set up data struct
+			game_index = sf.load_json('game_index.txt', fdir='data')
+			gameid = re.search(r'\?id=(?P<id>\d+)', response.url).group('id')
+			folder = game_index[gameid]
+
+			# So far this just gets the headers
+			# Need a way to differentiate home and away.
+			main_content = response.xpath('//div['+ sf.contains_str('wisfb_bsMainContent') +']')
+			box_areas = main_content.xpath('.//div['+ sf.contains_str('wisfb_bsArea') +']')
+			playerstats = dict()
+			playerstats['awayTeam'] = {}
+			playerstats['homeTeam'] = {}
+			teams = ['awayTeam', 'homeTeam']
+			for area in box_areas:
+				# Go to table per team
+				team_tables = area.xpath('.//div['+ sf.contains_str('wisfb_bsTable') +']')
+				for i, table in enumerate(team_tables):
+					column = table.xpath('.//table['+ sf.contains_str('wisfb_bsStandard') +']')
+					header = column.xpath('.//thead/tr/th/text()').extract()
+					player_cols = column.xpath('.//tbody/tr')
+					playerstats[teams[i]][header[0]] = {}
+					for col in player_cols:
+						try:
+							name = col.xpath('.//td['+ sf.contains_str('wisfb_bsNameCell') +']/a/text()').extract()[0]
+						except IndexError:
+							name = col.xpath('.//td['+ sf.contains_str('wisfb_bsNameCell') +']/span/text()').extract()[0]
+						stats = col.xpath('.//td[contains(@class,"wisfb_priority")]/text()').extract()
+						playerstats[teams[i]][header[0]][name] = {}
+						for j, stat in enumerate(stats):
+							playerstats[teams[i]][header[0]][name][header[j+1]] = stat
+
+			os.remove(os.path.join(folder, 'players.txt'))
+			sf.dump_json(playerstats, 'playerstats.txt', fdir=folder, indent=4)
+
+		# Log where problem occurred to debug scraper later
+		except Exception,error:
+			with open(os.path.join(folder, 'bad_playerstats.txt'), 'w') as f:
+				f.write("ERROR: " + str(error) + "\n" + 
+						" LINE: " + str(sys.exc_info()[-1].tb_lineno) + "\n" + 
+						" GAME: " + str(gameid) + "\n" + 
+						"  URL: " + response.url)
+

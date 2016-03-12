@@ -108,3 +108,12 @@ def poss_to_secs(poss):
 	"""
 	new_poss = re.split(':', poss)
 	return 60 * float(new_poss[0]) + float(new_poss[1])
+
+
+def contains_str(class_name):
+	"""
+	Allows contains to return only classes with whole
+	string, ie. class="class_name other_class_name" will be
+	found, while class="class_name_fake" will not.
+	"""
+	return 'contains(concat(\' \', @class, \' \'), \' ' + class_name + ' \')'

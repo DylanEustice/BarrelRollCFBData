@@ -1,0 +1,15 @@
+Boxscore Hiearchy
+
+wisfb_bsMainContent
+
++--wisfb_bsArea (Statistic type)
+|    +--wisfb_bsTable
+|    |    +--wisfb_bsStandard (Column per team)
+|    |    |    +--thead (Table header)
+|    |    |    |    +--tr
+|    |    |    |    |    +--th (Stat headings)
+|    |    |    +--tbody (Contains players/total)
+|    |    |    |    +--tr (-o wisfb_bsTotalRow)
+|    |    |    |    |    +--wisfb_bsNameCell (Player/Team data)
+|    |    |    |    |    +--wisfb_priority(\d) (Stat)
+|    |    +--wisfb_footnote -o ("Team stats not available")
