@@ -215,6 +215,11 @@ class PlayerStatsSpider(Spider):
 						stats = player.xpath('.//td[contains(@class,"wisfb_priority")]/text()').extract()
 						playerstats[teams[i]][header[0]][name] = {}
 						for j, stat in enumerate(stats):
+							try:
+								stat = float(stat)
+							except ValueError:
+								# Won't work when stat is null ("-")
+								pass
 							playerstats[teams[i]][header[0]][name][header[j+1]] = stat
 
 			sf.dump_json(playerstats, 'playerstats.json', fdir=folder, indent=4)

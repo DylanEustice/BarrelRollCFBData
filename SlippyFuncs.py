@@ -98,7 +98,10 @@ def add_boxscore_data(sdata, stype, team_box):
 	elif stype == "Possession":
 		sdata = poss_to_secs(sdata)
 	else:
-		sdata = float(sdata)
+		try:
+			sdata = float(sdata)
+		except ValueError:
+			pass
 	team_box[stype] = sdata
 
 
