@@ -1,5 +1,6 @@
-# Text files
+# Text and data files
 *.txt
+*.json
 
 # Python compile files
 *.pyc

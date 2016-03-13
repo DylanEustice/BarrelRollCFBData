@@ -40,7 +40,7 @@ def weeks_in_season(season):
 	played in the regular season.
 	"""
 	return [int(w['Number']) for w in 
-				load_json('Weeks.txt', fdir='data/'+str(season)+'/') if 
+				load_json('Weeks.json', fdir='data/'+str(season)+'/') if 
 				int(w['SeasonType']) == 1]
 
 
@@ -58,7 +58,7 @@ def index_game_folders():
 				game_index[gameid] = os.path.join(root, f)
 			except AttributeError:
 				pass
-	dump_json(game_index, 'game_index.txt', fdir='data', indent=4)
+	dump_json(game_index, 'game_index.json', fdir='data', indent=4)
 
 
 def find_game_folder(gameid):
@@ -117,3 +117,18 @@ def contains_str(class_name):
 	found, while class="class_name_fake" will not.
 	"""
 	return 'contains(concat(\' \', @class, \' \'), \' ' + class_name + ' \')'
+
+
+def check_game_index_exists():
+	try:
+		assert(os.path.isfile(os.path.join('data', 'game_index.json')))
+	except AssertionError:
+		index_game_folders()
+
+
+def find_game_folder(response):
+	check_game_index_exists()
+	game_index = load_json('game_index.json', fdir='data')
+	gameid = re.search(r'\?id=(?P<id>\d+)', response.url).group('id')
+	return game_index[gameid], gameid
+		
