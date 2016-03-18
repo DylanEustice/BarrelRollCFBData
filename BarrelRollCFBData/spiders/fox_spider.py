@@ -227,9 +227,10 @@ class PlayerStatsSpider(Spider):
 			except IOError:
 				teamstats = {}
 			for team, stats in playerstats.iteritems():
-				for stat, players in stats.iteritems():
+				for statType, players in stats.iteritems():
 					try:
-						teamstats[team][stat + ' Total'] = players['Total']
+						for stat, data in players['Total'].iteritems():
+							teamstats[team][statType +' '+ stat] = data
 					except KeyError:
 						pass
 
