@@ -123,6 +123,9 @@ def contains_str(class_name):
 
 
 def check_game_index_exists():
+	"""
+	Looks for game index file and creates it if it doesn't exist
+	"""
 	try:
 		assert(os.path.isfile(os.path.join('data', 'game_index.json')))
 	except AssertionError:
@@ -130,6 +133,9 @@ def check_game_index_exists():
 
 
 def find_game_folder(response):
+	"""
+	Given a URL, find it's associated game folder
+	"""
 	check_game_index_exists()
 	game_index = load_json('game_index.json', fdir='data')
 	gameid = re.search(r'\?id=(?P<id>\d+)', response.url).group('id')

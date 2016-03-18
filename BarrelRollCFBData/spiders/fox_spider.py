@@ -124,9 +124,9 @@ class TeamStatsSpider(Spider):
 		folder, gameid = sf.find_game_folder(response)
 
 		try:
-			teamstats = dict()
-			teamstats['awayTeam'] = dict()
-			teamstats['homeTeam'] = dict()
+			teamstats = {}
+			teamstats['awayTeam'] = {}
+			teamstats['homeTeam'] = {}
 			stats_area = response.xpath('//div[contains(@class,"wisfb_bsTeamStats")]')
 
 			# Get team names
@@ -193,7 +193,7 @@ class PlayerStatsSpider(Spider):
 			# Assume away team is in first column
 			main_content = response.xpath('//div['+ sf.contains_str('wisfb_bsMainContent') +']')
 			box_areas = main_content.xpath('.//div['+ sf.contains_str('wisfb_bsArea') +']')
-			playerstats = dict()
+			playerstats = {}
 			playerstats['awayTeam'] = {}
 			playerstats['homeTeam'] = {}
 			teams = ['awayTeam', 'homeTeam']
@@ -221,7 +221,19 @@ class PlayerStatsSpider(Spider):
 								# Won't work when stat is null ("-")
 								pass
 							playerstats[teams[i]][header[0]][name][header[j+1]] = stat
+			# Put players stats totals into boxscore file as well
+			try:
+				teamstats = sf.load_json('boxscore.json', fdir=folder)
+			except IOError:
+				teamstats = {}
+			for team, stats in playerstats.iteritems():
+				for stat, players in stats.iteritems():
+					try:
+						teamstats[team][stat + ' Total'] = players['Total']
+					except KeyError:
+						pass
 
+			sf.dump_json(teamstats, 'boxscore.json', fdir=folder, indent=4)
 			sf.dump_json(playerstats, 'playerstats.json', fdir=folder, indent=4)
 
 		# Log where problem occurred to debug scraper later
