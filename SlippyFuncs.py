@@ -2,6 +2,7 @@ import json
 import os
 import errno
 import re
+import warnings
 
 
 def ensure_path(path):
@@ -17,7 +18,7 @@ def ensure_path(path):
 
 def dump_json(data, fname, fdir='.', indent=None):
 	"""
-	Saves data to file. 
+	Save data to file. 
 	NOTE: Writes as text file, not binary.
 	"""
 	ensure_path(fdir)
@@ -36,7 +37,7 @@ def load_json(fname, fdir='.'):
 
 def weeks_in_season(season):
 	"""
-	Returns a list of the week numbers for games
+	Return a list of the week numbers for games
 	played in the regular season.
 	"""
 	return [int(w['Number']) for w in 
@@ -46,12 +47,12 @@ def weeks_in_season(season):
 
 def index_game_folders():
 	"""
-	Creates a dictionary with the gameid as the
+	Create a dictionary with the gameid as the
 	key and the path to the containing folder as
 	the value.
 	"""
-	game_index = dict()
-	for root, dirs, files in os.walk('.\\data'):
+	game_index = {}
+	for root, dirs, files in os.walk('data'):
 		for f in dirs:
 			try:
 				gameid = int(re.search(r'game_(?P<id>\d+)', f).group('id'))
@@ -63,10 +64,10 @@ def index_game_folders():
 
 def find_game_folder(gameid):
 	"""
-	Finds the game folder in the data directory which
+	Find the game folder in the data directory which
 	matches the given game ID.
 	"""
-	for root, dirs, files in os.walk('.\\data'):
+	for root, dirs, files in os.walk('data'):
 		for f in dirs:
 			if f == 'game_' + str(gameid):
 				return os.path.join(root, f)
@@ -76,7 +77,7 @@ def find_game_folder(gameid):
 
 def add_boxscore_data(sdata, stype, team_box):
 	"""
-	Formats data type for boxscore data.
+	Format data type for boxscore data.
 	"""
 	stype = str(stype)
 	# Convert certain stat types
@@ -107,7 +108,7 @@ def add_boxscore_data(sdata, stype, team_box):
 
 def poss_to_secs(poss):
 	"""
-	Converts string possession time in 'mm:ss' format to float seconds.
+	Convert string possession time in 'mm:ss' format to float seconds.
 	"""
 	new_poss = re.split(':', poss)
 	return 60 * float(new_poss[0]) + float(new_poss[1])
@@ -115,7 +116,7 @@ def poss_to_secs(poss):
 
 def contains_str(class_name):
 	"""
-	Allows contains to return only classes with whole
+	Allow contains to return only classes with whole
 	string, ie. class="class_name other_class_name" will be
 	found, while class="class_name_fake" will not.
 	"""
@@ -124,7 +125,7 @@ def contains_str(class_name):
 
 def check_game_index_exists():
 	"""
-	Looks for game index file and creates it if it doesn't exist
+	Look for game index file and creates it if it doesn't exist
 	"""
 	try:
 		assert(os.path.isfile(os.path.join('data', 'game_index.json')))
@@ -140,4 +141,110 @@ def find_game_folder(response):
 	game_index = load_json('game_index.json', fdir='data')
 	gameid = re.search(r'\?id=(?P<id>\d+)', response.url).group('id')
 	return game_index[gameid], gameid
-		
+
+
+def build_teamgame_index():
+	teamgame_index = {}
+	for root, dirs, files in os.walk('data'):
+		for f in files:
+			try:
+				gameid = re.match(r'gameinfo_(?P<gameid>\d+).json', f).group('gameid')
+				gameinfo = load_json(os.path.join(root, f))
+				try:
+					teamgame_index[gameinfo['HomeTeamId']].append(gameid)
+				except KeyError:
+					teamgame_index[gameinfo['HomeTeamId']] = [gameid]
+				try:
+					teamgame_index[gameinfo['AwayTeamId']].append(gameid)
+				except KeyError:
+					teamgame_index[gameinfo['AwayTeamId']] = [gameid]
+			except AttributeError:
+				pass
+	dump_json(teamgame_index, 'teamgame_index.json', fdir='data', indent=4)
+
+
+def analyze_stats(ftype='boxscore', stdir='data'):
+	"""
+	Find how many bad scrapes there were in the entire directory
+	and deletes bad scrape files if needed
+	:kwarg ftype: describes the file type to analyze (boxscore or playerstats) 
+	:kwarg stdir: directory to start searching through
+	"""
+	if ftype != 'boxscore' and ftype != 'playerstats':
+		warnings.warn("ftype must be \"boxscore\" or \"playerstats\". Returning None.", UserWarning)
+	ngood = 0
+	nbad = 0
+	errorlog = {}
+	for root, dirs, files in os.walk(stdir):
+		# Find gameid
+		for f in files:
+			try:
+				gameid = re.match(r'gameinfo_(?P<gameid>\d+).json', f).group('gameid')
+				break
+			except AttributeError:
+				pass
+		# Good scrape
+		fbadbox = os.path.join(root, 'bad_'+ftype+'.json')
+		if os.path.isfile(os.path.join(root, 'boxscore.json')):
+			ngood += 1
+			# If bad_boxscore file still here when it shouldn't be, delete it
+			if os.path.isfile(fbadbox):
+				os.remove(fbadbox)
+		# Bad scrape
+		elif os.path.isfile(fbadbox):
+			nbad += 1
+			errorlog[gameid] = load_json(fbadbox)
+	return ngood, nbad, errorlog
+
+
+def compile_teams(years='all'):
+	teams = {}
+	game_index = load_json(os.path.join('data', 'game_index.json'))
+	teamgame_index = load_json(os.path.join('data', 'teamgame_index.json'))
+	if years == 'all':
+		years = range(2000, 2016)
+	for year in years:
+		yeardir = os.path.join('data', str(year))
+		# Add new teams' year
+		for root, dirs, files in os.walk(os.path.join(yeardir, 'teams')):
+			for f in files:
+				newteam = load_json(os.path.join(root, f))
+				try:
+					setup_team_year(year, teams, newteam)
+				except KeyError:
+					init_team(teams, newteam)
+					setup_team_year(year, teams, newteam)
+		# Add all games to teams
+		for teamid in teams:
+			print teamid
+			for gameid in teamgame_index[str(teamid)]:
+				game_path = game_index[gameid]
+				game_year = re.search(r'data\W+(?P<year>\d{4})\W+gameinfo', game_path).group('year')
+				if game_year == str(year):
+					teams[teamid][str(year)]['games'][gameid] = {}
+					gameinfo = load_json('gameinfo_'+gameid+'.json', fdir=game_path)
+					try:
+						boxscore = load_json('boxscore.json', fdir=game_path)
+					except IOError:
+						boxscore = None
+					try:
+						playerstats = load_json('playerstats.json', fdir=game_path)
+					except IOError:
+						playerstats = None
+					teams[teamid][str(year)]['games'][gameid]['gameinfo'] = gameinfo
+					teams[teamid][str(year)]['games'][gameid]['boxscore'] = boxscore
+					teams[teamid][str(year)]['games'][gameid]['playerstats'] = playerstats
+	return teams
+
+def init_team(teams, newteam):
+	teams[newteam['Id']] = {}
+	teams[newteam['Id']]['school'] = newteam['School']
+	teams[newteam['Id']]['name'] = newteam['Name']
+	teams[newteam['Id']]['abbr'] = newteam['Abbr']
+	teams[newteam['Id']]['primaryColor'] = newteam['PrimaryColor']
+	teams[newteam['Id']]['secondaryColor'] = newteam['SecondaryColor']
+
+def setup_team_year(year, teams, newteam):
+	teams[newteam['Id']][str(year)] = {}
+	teams[newteam['Id']][str(year)]['teamInfo'] = newteam
+	teams[newteam['Id']][str(year)]['games'] = {}
