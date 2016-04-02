@@ -204,7 +204,10 @@ def compile_teams(years='all'):
 	if years == 'all':
 		years = range(2000, 2016)
 	for year in years:
-		yeardir = os.path.join('data', str(year))
+		try:
+			yeardir = os.path.join('data', str(year))
+		except IOError:
+			continue
 		# Add new teams' year
 		for root, dirs, files in os.walk(os.path.join(yeardir, 'teams')):
 			for f in files:
