@@ -5,6 +5,9 @@
 # Python compile files
 *.pyc
 
+# Misc files
+neurolabtest.py
+
 # Windows image file caches
 Thumbs.db
 ehthumbs.db
