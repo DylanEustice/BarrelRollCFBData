@@ -23,7 +23,7 @@ def dump_json(data, fname, fdir='.', indent=None):
 	"""
 	ensure_path(fdir)
 	with open(os.path.join(fdir, fname), 'w') as f:
-		json.dump(data, f, indent=indent)
+		json.dump(data, f, indent=indent, sort_keys=True)
 
 
 def load_json(fname, fdir='.'):
@@ -103,7 +103,11 @@ def add_boxscore_data(sdata, stype, team_box):
 			sdata = float(sdata)
 		except ValueError:
 			pass
-	team_box[stype] = sdata
+	if stype == "Comp-Att":
+		team_box["Comp"] = sdata[0]
+		team_box["Att"] = sdata[1]
+	else:
+		team_box[stype] = sdata
 
 
 def poss_to_secs(poss):
