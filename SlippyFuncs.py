@@ -103,11 +103,7 @@ def add_boxscore_data(sdata, stype, team_box):
 			sdata = float(sdata)
 		except ValueError:
 			pass
-	if stype == "Comp-Att":
-		team_box["Comp"] = sdata[0]
-		team_box["Att"] = sdata[1]
-	else:
-		team_box[stype] = sdata
+	team_box[stype] = sdata
 
 
 def poss_to_secs(poss):
