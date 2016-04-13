@@ -16,7 +16,7 @@ def ensure_path(path):
 			raise
 
 
-def dump_json(data, fname, fdir='.', indent=None):
+def dump_json(data, fname, fdir='.', indent=4):
 	"""
 	Save data to file. 
 	NOTE: Writes as text file, not binary.
@@ -183,15 +183,12 @@ def analyze_stats(ftype='boxscore', stdir='data'):
 				break
 			except AttributeError:
 				pass
-		# Good scrape
-		fbadbox = os.path.join(root, 'bad_'+ftype+'.json')
-		if os.path.isfile(os.path.join(root, 'boxscore.json')):
-			ngood += 1
-			# If bad_boxscore file still here when it shouldn't be, delete it
-			if os.path.isfile(fbadbox):
-				os.remove(fbadbox)
 		# Bad scrape
-		elif os.path.isfile(fbadbox):
+		fbadbox = os.path.join(root, 'bad_'+ftype+'.json')
+		if os.path.isfile(fbadbox):
 			nbad += 1
 			errorlog[gameid] = load_json(fbadbox)
+		# Good scrape
+		elif os.path.isfile(os.path.join(root, ftype+'.json')):
+			ngood += 1
 	return ngood, nbad, errorlog

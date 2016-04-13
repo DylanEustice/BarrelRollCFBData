@@ -9,7 +9,7 @@ import sys
 
 # =====================================================================
 # Globals
-seasons = range(2015, 2016)
+seasons = range(2000, 2016)
 # ---------------------------------------------------------------------
 
 
@@ -33,19 +33,19 @@ class SeasonInfoSpider(Spider):
 		# Save Conference data
 		fdir = 'data/' + str(data['Season']) + '/'
 		fname = 'Conferences.json'
-		sf.dump_json(data['Conferences'], fname, fdir=fdir, indent=4)
+		sf.dump_json(data['Conferences'], fname, fdir=fdir)
 
 		# Save Team data
 		teamkeys = [key for key in data['Teams'].keys()]
 		for key in teamkeys:
 			fdir = 'data/' + str(data['Season']) + '/teams/'
 			fname = str(data['Teams'][key]['School']) + '.json'
-			sf.dump_json(data['Teams'][key], fname, fdir=fdir, indent=4)
+			sf.dump_json(data['Teams'][key], fname, fdir=fdir)
 
 		# Save weeks data
 		fdir = 'data/' + str(data['Season']) + '/'
 		fname = 'Weeks.json'
-		sf.dump_json(data['Weeks'], fname, fdir=fdir, indent=4)
+		sf.dump_json(data['Weeks'], fname, fdir=fdir)
 
 
 class GameInfoSpider(Spider):
@@ -85,7 +85,7 @@ class GameInfoSpider(Spider):
 			else:
 				fdir = 'data/' + str(game['Season']) + '/gameinfo/bowls/game_' + str(game['Id'])
 			fname = 'gameinfo_' + str(game['Id']) + '.json'
-			sf.dump_json(game, fname, fdir=fdir, indent=4)
+			sf.dump_json(game, fname, fdir=fdir)
 
 
 class TeamStatsSpider(Spider):
@@ -116,7 +116,7 @@ class TeamStatsSpider(Spider):
 						game = sf.load_json(f, fdir=root)
 						start_urls.append(base_url + game['Links']['boxscore'] + '&type=3')
 		except IOError:
-			warnings.warn("Game info ("+ str(season) +") not collected. Run \"scrapy crawl gameinfo\" then try again.", UserWarning)
+			warnings.warn("(teamstats) Game info ("+ str(season) +") not collected. Run \"scrapy crawl gameinfo\" then try again.", UserWarning)
 
 	def parse(self, response):
 
@@ -147,15 +147,25 @@ class TeamStatsSpider(Spider):
 			for sdata, stype in zip(stat_data[1::2], stat_type[1::2]):
 				sf.add_boxscore_data(sdata, stype, teamstats['homeTeam'])
 
-			sf.dump_json(teamstats, 'boxscore.json', fdir=folder, indent=4)
+			# Save
+			sf.dump_json(teamstats, 'boxscore.json', fdir=folder)
+			# if bad_boxscore file still here when it shouldn't be, delete it
+			fbadbox = os.path.join(folder, 'bad_boxscore.json')
+			if os.path.isfile(fbadbox):
+				os.remove(fbadbox)
 
 		# Log where problem occurred to debug scraper later
 		except Exception,error:
-			with open(os.path.join(folder, 'bad_boxscore.json'), 'w') as f:
-				f.write("ERROR: " + str(error) + "\n" + 
-						" LINE: " + str(sys.exc_info()[-1].tb_lineno) + "\n" + 
-						" GAME: " + str(gameid) + "\n" + 
-						"  URL: " + response.url)
+			err = {}
+			err["ERROR"] = str(error)
+			err["LINE"] = str(sys.exc_info()[-1].tb_lineno)
+			err["GAME"] = str(gameid)
+			err["URL"] = response.url
+			sf.dump_json(err, 'bad_boxscore.json', fdir=folder)
+			# if boxscore file still here when it shouldn't be, delete it
+			fgoodbox = os.path.join(folder, 'boxscore.json')
+			if os.path.isfile(fgoodbox):
+				os.remove(fgoodbox)
 
 
 class PlayerStatsSpider(Spider):
@@ -181,7 +191,7 @@ class PlayerStatsSpider(Spider):
 						game = sf.load_json(f, fdir=root)
 						start_urls.append(base_url + game['Links']['boxscore'])
 		except IOError:
-			warnings.warn("Game info ("+ str(season) +") not collected. Run \"scrapy crawl gameinfo\" then try again.", UserWarning)
+			warnings.warn("(playerstats) Game info ("+ str(season) +") not collected. Run \"scrapy crawl gameinfo\" then try again.", UserWarning)
 
 	
 	def parse(self, response):
@@ -234,14 +244,23 @@ class PlayerStatsSpider(Spider):
 					except KeyError:
 						pass
 
-			sf.dump_json(teamstats, 'boxscore.json', fdir=folder, indent=4)
-			sf.dump_json(playerstats, 'playerstats.json', fdir=folder, indent=4)
+			sf.dump_json(teamstats, 'boxscore.json', fdir=folder)
+			sf.dump_json(playerstats, 'playerstats.json', fdir=folder)
+			# if bad_playerstats file still here when it shouldn't be, delete it
+			fbadplyr = os.path.join(folder, 'bad_playerstats.json')
+			if os.path.isfile(fbadplyr):
+				os.remove(fbadplyr)
 
 		# Log where problem occurred to debug scraper later
 		except Exception,error:
-			with open(os.path.join(folder, 'bad_playerstats.json'), 'w') as f:
-				f.write("ERROR: " + str(error) + "\n" + 
-						" LINE: " + str(sys.exc_info()[-1].tb_lineno) + "\n" + 
-						" GAME: " + str(gameid) + "\n" + 
-						"  URL: " + response.url)
+			err = {}
+			err["ERROR"] = str(error)
+			err["LINE"] = str(sys.exc_info()[-1].tb_lineno)
+			err["GAME"] = str(gameid)
+			err["URL"] = response.url
+			sf.dump_json(err, 'bad_playerstats.json', fdir=folder)
+			# if playerstats file still here when it shouldn't be, delete it
+			fgoodplyr = os.path.join(folder, 'playerstats.json')
+			if os.path.isfile(fgoodplyr):
+				os.remove(fgoodplyr)
 
