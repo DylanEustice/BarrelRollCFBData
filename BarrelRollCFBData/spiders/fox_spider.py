@@ -9,7 +9,7 @@ import sys
 
 # =====================================================================
 # Globals
-seasons = range(2000, 2016)
+seasons = range(2016, 2017)
 # ---------------------------------------------------------------------
 
 
@@ -127,19 +127,19 @@ class TeamStatsSpider(Spider):
 			teamstats = {}
 			teamstats['awayTeam'] = {}
 			teamstats['homeTeam'] = {}
-			stats_area = response.xpath('//div[contains(@class,"wisfb_bsTeamStats")]')
+			stats_area = response.xpath('//div[contains(@class,"_bsTeamStats")]')
 
 			# Get team names
-			tm_divs = stats_area.xpath('.//div[contains(@class,"wisfb_bstsTeamDisplay")]')
-			teamstats['awayTeam']['nameFull'] = tm_divs[0].xpath('.//span[contains(@class,"wisfb_bsFull")]/text()').extract()[0]
-			teamstats['awayTeam']['nameShort'] = tm_divs[0].xpath('.//span[contains(@class,"wisfb_bsShort")]/text()').extract()[0]
-			teamstats['homeTeam']['nameFull'] = tm_divs[1].xpath('.//span[contains(@class,"wisfb_bsFull")]/text()').extract()[0]
-			teamstats['homeTeam']['nameShort'] = tm_divs[1].xpath('.//span[contains(@class,"wisfb_bsShort")]/text()').extract()[0]
+			tm_divs = stats_area.xpath('.//div[contains(@class,"wisbb_bstsTeamDisplay")]')
+			teamstats['awayTeam']['nameFull'] = tm_divs[0].xpath('.//span[contains(@class,"_bsFull")]/text()').extract()[0]
+			teamstats['awayTeam']['nameShort'] = tm_divs[0].xpath('.//span[contains(@class,"_bsShort")]/text()').extract()[0]
+			teamstats['homeTeam']['nameFull'] = tm_divs[1].xpath('.//span[contains(@class,"_bsFull")]/text()').extract()[0]
+			teamstats['homeTeam']['nameShort'] = tm_divs[1].xpath('.//span[contains(@class,"_bsShort")]/text()').extract()[0]
 
 			# Get boxscore stats
 			boxtable = stats_area.xpath('.//tbody')
-			stat_data = boxtable.xpath('.//td[contains(@class,"wisfb_bstsStat")]/text()').extract()
-			stat_type = boxtable.xpath('.//td[contains(@class,"wisfb_bstsTitle")]/text()').extract()
+			stat_data = boxtable.xpath('.//td[contains(@class,"_bstsStat")]/text()').extract()
+			stat_type = boxtable.xpath('.//td[contains(@class,"_bstsTitle")]/text()').extract()
 			# away stats
 			for sdata, stype in zip(stat_data[::2], stat_type[::2]):
 				sf.add_boxscore_data(sdata, stype, teamstats['awayTeam'])
@@ -201,8 +201,8 @@ class PlayerStatsSpider(Spider):
 
 		try:
 			# Assume away team is in first column
-			main_content = response.xpath('//div['+ sf.contains_str('wisfb_bsMainContent') +']')
-			box_areas = main_content.xpath('.//div['+ sf.contains_str('wisfb_bsArea') +']')
+			main_content = response.xpath('//div['+ sf.contains_str('wisbb_bsMainContent') +']')
+			box_areas = main_content.xpath('.//div['+ sf.contains_str('wisbb_bsArea') +']')
 			playerstats = {}
 			playerstats['awayTeam'] = {}
 			playerstats['homeTeam'] = {}
@@ -210,19 +210,19 @@ class PlayerStatsSpider(Spider):
 			# Find all stat types
 			for area in box_areas:
 				# Go to stat table per team
-				team_tables = area.xpath('.//div['+ sf.contains_str('wisfb_bsTable') +']')
+				team_tables = area.xpath('.//div['+ sf.contains_str('wisbb_bsTable') +']')
 				for i, table in enumerate(team_tables):
-					column = table.xpath('.//table['+ sf.contains_str('wisfb_bsStandard') +']')
+					column = table.xpath('.//table['+ sf.contains_str('wisbb_bsStandard') +']')
 					header = column.xpath('.//thead/tr/th/text()').extract()
 					player_cols = column.xpath('.//tbody/tr')
 					playerstats[teams[i]][header[0]] = {}
 					# Find all players with stat
 					for player in player_cols:
 						try:
-							name = player.xpath('.//td['+ sf.contains_str('wisfb_bsNameCell') +']/a/text()').extract()[0]
+							name = player.xpath('.//td['+ sf.contains_str('wisbb_bsNameCell') +']/a/text()').extract()[0]
 						except IndexError:
-							name = player.xpath('.//td['+ sf.contains_str('wisfb_bsNameCell') +']/span/text()').extract()[0]
-						stats = player.xpath('.//td[contains(@class,"wisfb_priority")]/text()').extract()
+							name = player.xpath('.//td['+ sf.contains_str('wisbb_bsNameCell') +']/span/text()').extract()[0]
+						stats = player.xpath('.//td[contains(@class,"wisbb_priority")]/text()').extract()
 						playerstats[teams[i]][header[0]][name] = {}
 						for j, stat in enumerate(stats):
 							try:
@@ -244,8 +244,12 @@ class PlayerStatsSpider(Spider):
 					except KeyError:
 						pass
 
-			sf.dump_json(teamstats, 'boxscore.json', fdir=folder)
-			sf.dump_json(playerstats, 'playerstats.json', fdir=folder)
+			if teamstats:
+				sf.dump_json(teamstats, 'boxscore.json', fdir=folder)
+			if playerstats['homeTeam'] or playerstats['awayTeam']:
+				sf.dump_json(playerstats, 'playerstats.json', fdir=folder)
+			else:
+				assert False, "No player stats found"
 			# if bad_playerstats file still here when it shouldn't be, delete it
 			fbadplyr = os.path.join(folder, 'bad_playerstats.json')
 			if os.path.isfile(fbadplyr):
